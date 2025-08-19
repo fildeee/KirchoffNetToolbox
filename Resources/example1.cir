@@ -1,0 +1,5 @@
+* Example 1 — 3-node chain, DC drive at node 1, leak on node 3
+V1 1 0 0.8
+R12 1 2 1000
+R23 2 3 1000
+R3G 3 0 10000000

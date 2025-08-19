@@ -7,6 +7,9 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox, filedialog
 import numpy as np
 
+from spice_adapter_diodes import build_spice_netlist_diodes
+from spice_runner import run_spice_netlist
+
 
 ## MAIN CLASS
 class KirchhoffNet(nn.Module):
@@ -45,6 +48,7 @@ class KirchhoffNet(nn.Module):
             dv_dt[node_idx] = (incoming - outgoing) / self.theta
 
         return dv_dt
+
 
 ## CONDUCTANCE MATRIX
 def get_conductance_matrix(graph: nx.DiGraph) -> np.ndarray:
@@ -165,6 +169,51 @@ def launch_gui():
         initial_voltages = torch.tensor(initial_voltages)
 
     simulate_kirchhoffnet(G, initial_voltages)
+
+## Hook
+def run_spice_for_graph(G, *,
+                        inputs_dc=None,
+                        outputs=None,
+                        C0=1e-9, T=2e-3, dt=1e-6,
+                        ngspice_path=r"C:\ProgramData\chocolatey\bin\ngspice.exe"):
+    """
+    G: your NetworkX graph. Node 0 is ground (if missing, we'll add it).
+    inputs_dc: dict {node: volts} to drive the circuit (e.g. {1: 0.8})
+    outputs: list of node ids to record (default: all non-ground nodes)
+    """
+    import networkx as nx
+
+    nodes = sorted(G.nodes())
+    if 0 not in nodes:
+        nodes = [0] + nodes  # enforce a ground node
+
+    # IMPORTANT: For diode simulation, edges should be **directed** as you intend current to flow.
+    edges = list(G.edges())
+
+    if outputs is None:
+        outputs = [n for n in nodes if n != 0]
+
+    if inputs_dc is None:
+        # default: drive the first non-ground node at 0.8 V if nothing is provided
+        nz = [n for n in nodes if n != 0]
+        inputs_dc = {nz[0]: 0.8} if nz else {}
+
+    netlist = build_spice_netlist_diodes(
+        nodes=nodes,
+        edges=edges,
+        inputs_dc=inputs_dc,
+        outputs=outputs,
+        C0=C0, T=T, dt=dt,
+        title="Toolbox → SPICE (diodes)"
+    )
+
+    t, signals, folder = run_spice_netlist(
+        netlist,
+        ngspice_path=ngspice_path,
+        vector_names=[f"v({n})" for n in outputs],
+    )
+    return t, signals, folder
+
 
 ## MAIN
 if __name__ == "__main__":
