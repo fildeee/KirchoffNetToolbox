@@ -1,0 +1,13 @@
+.model DDEF D(IS=1e-14 N=1.9 RS=0.01)
+V1 1 0 0.8
+D12 1 2 DDEF
+D23 2 3 DDEF
+RLEAK2 2 0 1e9
+RLEAK3 3 0 1e9
+.control
+set noaskquit
+op
+print v(1) v(2) v(3)
+quit
+.endc
+.end
